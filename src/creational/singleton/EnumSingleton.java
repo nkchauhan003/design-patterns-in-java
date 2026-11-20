@@ -14,7 +14,7 @@ public enum EnumSingleton {
 
     /**
      * Example business method.
-     * 
+     *
      * Add Singleton-specific operations here.
      */
     public void doSomething() {
