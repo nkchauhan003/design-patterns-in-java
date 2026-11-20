@@ -12,33 +12,44 @@ public class App {
 
     public static void main(String[] args) {
 
-        // Create a report template.
+        // Create and configure the original prototype.
         Report template = new Report();
         template.setTitle("Annual Report");
-        template.setSections(List.of("Introduction", "Financials", "Conclusion"));
+        template.setSections(
+                List.of("Introduction", "Financials", "Conclusion"));
         template.setStyle(new Style("Arial", "company-logo.png"));
 
         // Register the prototype.
         Registry registry = new Registry();
         registry.add("annual", template);
 
-        // Create new reports by cloning the registered prototype.
+        // Create independent copies of the registered prototype.
         Report report1 = registry.get("annual");
         Report report2 = registry.get("annual");
 
-        // Modify one cloned report.
-        report1.setTitle("Annual Report 2026");
-        report1.getSections().add("Future Outlook");
+        // Modify the cloned reports independently.
+        report1.setTitle("Annual Report Jan 2026");
+        report1.getSections().add("January Overview");
 
+        report2.setTitle("Annual Report Feb 2026");
+        report2.getSections().add("February Overview");
+
+        // Display cloned reports.
         System.out.println(report1.getTitle());
         System.out.println(report1.getSections());
 
-        // Original template and second clone remain unchanged.
-        System.out.println(template.getTitle());
-        System.out.println(template.getSections());
-
         System.out.println(report2.getTitle());
         System.out.println(report2.getSections());
+
+        // Verify independent object creation.
+        System.out.println(report1 != report2);
+
+        // Verify independent Style objects.
+        System.out.println(report1.getStyle() != report2.getStyle());
+
+        // Verify original prototype remains unchanged.
+        System.out.println(template.getTitle());
+        System.out.println(template.getSections());
     }
 }
 
@@ -77,21 +88,28 @@ class Report {
 
     /**
      * Creates an independent copy of the current Report.
-     * <p>
-     * Copies the mutable sections list while safely sharing
-     * the immutable Style record.
      *
-     * @return a cloned Report instance
+     * Copies all fields, including mutable nested objects,
+     * to ensure the cloned object is independent of the original.
+     *
+     * @return a deep copy of the Report
      */
     public Report copy() {
 
         Report clone = new Report();
 
+        // Strings are immutable and can safely be shared.
         clone.title = this.title;
+
+        // Create an independent copy of the mutable list.
         clone.sections = this.sections == null
                 ? null
                 : new ArrayList<>(this.sections);
-        clone.style = this.style;
+
+        // Create an independent Style object.
+        clone.style = this.style == null
+                ? null
+                : new Style(this.style.font(), this.style.logo());
 
         return clone;
     }
@@ -111,17 +129,17 @@ class Registry {
     private final Map<String, Report> templates = new HashMap<>();
 
     /**
-     * Registers a report prototype.
+     * Registers a copy of the supplied prototype.
      *
      * @param name   prototype identifier
-     * @param report report template
+     * @param report report prototype
      */
     public void add(String name, Report report) {
-        templates.put(name, report);
+        templates.put(name, report.copy());
     }
 
     /**
-     * Returns a new copy of the registered prototype.
+     * Returns an independent copy of the registered prototype.
      *
      * @param name prototype identifier
      * @return cloned report, or null if the prototype does not exist
