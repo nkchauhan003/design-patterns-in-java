@@ -1,49 +1,42 @@
 
 package chainofresponsibility;
 
-// Immutable request object passed through the handler chain.
+// Immutable request passed through the handler chain.
 record Request(String token, String body, int count) {
 }
 
-// Base handler: maintains the reference to the next handler.
+// Base handler maintains a reference to the next handler.
 abstract class Handler {
-
     private Handler next;
 
-    // Links the next handler and returns it for fluent chain construction.
+    // Links the next handler and supports fluent chain construction.
     Handler linkWith(Handler next) {
         this.next = next;
         return next;
     }
 
-    // Entry point for processing a request.
-    public String process(Request request) {
-        return handle(request);
-    }
-
     // Passes the request to the next handler.
     // If no handler exists, the request is considered successfully processed.
-    protected String handle(Request request) {
-        return next == null ? "200 OK" : next.handle(request);
+    protected String handle(Request r) {
+        return next == null ? "200 OK" : next.handle(r);
     }
 }
 
-// Validates authentication before allowing the request to proceed.
+// Validates the authentication token.
 class AuthHandler extends Handler {
 
     @Override
-    protected String handle(Request request) {
-
-        if (!"valid".equals(request.token()))
+    protected String handle(Request r) {
+        if (!"valid".equals(r.token()))
             return "401 Unauthorized";
 
-        return super.handle(request);
+        // Authentication successful; continue to the next handler.
+        return super.handle(r);
     }
 }
 
-// Checks whether the request exceeds the allowed request limit.
+// Checks whether the request count exceeds the configured limit.
 class RateLimitHandler extends Handler {
-
     private final int limit;
 
     RateLimitHandler(int limit) {
@@ -51,71 +44,55 @@ class RateLimitHandler extends Handler {
     }
 
     @Override
-    protected String handle(Request request) {
-
-        if (request.count() > limit)
+    protected String handle(Request r) {
+        if (limit < r.count())
             return "429 Too Many Requests";
 
-        return super.handle(request);
+        // Rate limit not exceeded; continue processing.
+        return super.handle(r);
     }
 }
 
-// Validates the request body before processing the order.
+// Validates the maximum allowed request body length.
 class ValidationHandler extends Handler {
-
-    private static final int MAX_LENGTH = 500;
+    private final int maxLength = 500;
 
     @Override
-    protected String handle(Request request) {
+    protected String handle(Request r) {
+        if (r.body() != null && maxLength < r.body().length())
+            return "400 Bad Request";
 
-        if (request.body() == null || request.body().isBlank())
-            return "400 Bad Request: Empty body";
-
-        if (request.body().length() > MAX_LENGTH)
-            return "400 Bad Request: Body too large";
-
-        return super.handle(request);
+        // Validation successful; continue to the next handler.
+        return super.handle(r);
     }
 }
 
-// Performs the actual business operation.
+// Performs the actual order processing.
 class OrderHandler extends Handler {
 
     @Override
-    protected String handle(Request request) {
-        return "Order Processed Successfully";
+    protected String handle(Request r) {
+        return "Order";
     }
 }
 
 public class App {
-
     public static void main(String[] args) {
 
-        // Build the processing chain.
+        // Build the chain of responsibility.
         Handler chain = new AuthHandler();
 
         chain.linkWith(new RateLimitHandler(3))
                 .linkWith(new ValidationHandler())
                 .linkWith(new OrderHandler());
 
-        // Valid request: passes through all handlers.
-        Request validRequest = new Request("valid", "Create Order", 2);
+        // Submit the request to the first handler.
+        String response = chain.handle(new Request(
+                "90982b23-d49c-4a01-a443-195a04e643ca",
+                "{\"customer_id\":\"C1\",\"items\":[{\"id\":\"P1\",\"qty\":2}],\"total\":39.98}",
+                1
+        ));
 
-        System.out.println(chain.process(validRequest));
-
-        // Invalid authentication: stops at AuthHandler.
-        Request invalidAuth = new Request("invalid", "Create Order", 2);
-
-        System.out.println(chain.process(invalidAuth));
-
-        // Rate limit exceeded: stops at RateLimitHandler.
-        Request rateLimited = new Request("valid", "Create Order", 5);
-
-        System.out.println(chain.process(rateLimited));
-
-        // Invalid body: stops at ValidationHandler.
-        Request invalidBody = new Request("valid", "", 2);
-
-        System.out.println(chain.process(invalidBody));
+        System.out.println(response);
     }
 }
