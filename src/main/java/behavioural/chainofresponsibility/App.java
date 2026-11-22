@@ -1,5 +1,5 @@
 
-package chainofresponsibility;
+package behavioural.chainofresponsibility;
 
 // Immutable request passed through the handler chain.
 record Request(String token, String body, int count) {
